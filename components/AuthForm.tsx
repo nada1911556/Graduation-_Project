@@ -14,7 +14,7 @@ import Image from "next/image";
 import React from "react";
 import Link from "next/link";
 import {type} from "node:os";
-import FormField from "@/components/FormField";
+import FormField from "./FormField";
 import {useRouter} from "next/navigation";
 import {createUserWithEmailAndPassword, signInWithEmailAndPassword} from "firebase/auth";
 import {auth} from "@/firebase/client";
