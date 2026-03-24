@@ -1,40 +1,37 @@
 "use client"
+
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
-import {
-    Form,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
+import { Form } from "@/components/ui/form"
 import { toast } from "sonner"
-import Image from "next/image";
-import React from "react";
-import Link from "next/link";
-import FormField from "./FormField";
-import {useRouter} from "next/navigation";
-import {createUserWithEmailAndPassword, signInWithEmailAndPassword} from "firebase/auth";
-import {auth} from "@/firebase/client";
-import {setSessionCookie, signIn, signUp} from "@/lib/actions/auth.action";
-// 1. تحديد قوانين الحقل (Validation Schema)
-// const formSchema = z.object({
-//     username: z
-//         .string()
-//         .min(2, "Username must be at least 2 characters.")
-//         .max(20, "Username must not exceed 20 characters."),
-// })
+import Image from "next/image"
+import React from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth"
 
-const  authFormSchema=(type:FormType)=>{
-    return z.object({name:type==="sign-up"?z.string().min(3):z.string().optional(),
-    email:z.string().min(3),
-    password:z.string().min(5),
+// الاستيرادات الخاصة بمشروعك
+import FormField from "./FormField"
+import { auth } from "@/firebase/client"
+import { signIn, signUp } from "@/lib/actions/auth.action"
+
+// 1. تحديد قوانين التحقق (Schema)
+const authFormSchema = (type: string) => {
+    return z.object({
+        name: type === "sign-up" ? z.string().min(3, "الاسم يجب أن يكون 3 أحرف على الأقل") : z.string().optional(),
+        email: z.string().email("البريد الإلكتروني غير صالح"),
+        password: z.string().min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل"),
     })
-
 }
 
-const AuthForm = ({type}:{type:FormType}) => {
-    const router = useRouter();
-    const formSchema=authFormSchema(type);
+const AuthForm = ({ type }: { type: "sign-in" | "sign-up" }) => {
+    const router = useRouter()
+    const isSignIn = type === "sign-in"
+    const formSchema = authFormSchema(type)
+
+    // 2. إعداد الفورم
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -44,93 +41,100 @@ const AuthForm = ({type}:{type:FormType}) => {
         },
     })
 
-    // 3. دالة الإرسال
-    const onSubmit = async (data: z.infer<typeof formSchema>) => {
+    // 3. دالة الإرسال (Submit Handler)
+    const onSubmit = async (values: z.infer<typeof formSchema>) => {
         try {
             if (type === "sign-up") {
-                const { name, email, password } = data;
-
-                const userCredential = await createUserWithEmailAndPassword(
-                    auth,
-                    email,
-                    password
-                );
+                // عملية التسجيل الجديد
+                const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password)
 
                 const result = await signUp({
                     uid: userCredential.user.uid,
-                    name: name!,
-                    email,
-                    password,
-                });
+                    name: values.name!,
+                    email: values.email,
+                    password: values.password,
+                })
 
                 if (!result.success) {
-                    toast.error(result.message);
-                    return;
+                    toast.error(result.message)
+                    return
                 }
 
-                toast.success("Account created successfully. Please sign in.");
-                router.push("/sign-in");
+                toast.success("تم إنشاء الحساب بنجاح، يمكنك تسجيل الدخول الآن")
+                router.push("/signin")
             } else {
-                const { email, password } = data;
-
-                const userCredential = await signInWithEmailAndPassword(
-                    auth,
-                    email,
-                    password
-                );
-
-                const idToken = await userCredential.user.getIdToken();
-                if (!idToken) {
-                    toast.error("Sign in Failed. Please try again.");
-                    return;
-                }
+                // عملية تسجيل الدخول
+                const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password)
+                const idToken = await userCredential.user.getIdToken()
 
                 await signIn({
-                    email,
+                    email: values.email,
                     idToken,
-                });
+                })
 
-                toast.success("Signed in successfully.");
-                router.push("/");
+                toast.success("تم تسجيل الدخول بنجاح")
+                router.push("/") // التوجه للصفحة الرئيسية
             }
-        } catch (error) {
-            console.log(error);
-            toast.error(`There was an error: ${error}`);
+        } catch (error: any) {
+            console.error(error)
+            toast.error("حدث خطأ: " + (error.message || "فشلت العملية"))
         }
-    };
-
-    const isSignIn=type === "sign-in";
+    }
 
     return (
         <div className="card-border lg:min-w-[566px]">
             <div className="flex flex-col gap-6 card py-14 px-10">
                 <div className="flex flex-row justify-center gap-2">
-                    <Image src="/logo.svg" alt="logo" height={32} width={38}/>
+                    <Image src="/logo.svg" alt="logo" height={32} width={38} />
                     <h2 className="text-primary-100B">PrepWise</h2>
                 </div>
-                    <h3 className="text-center">Practise Job interview With AI</h3>
-
+                <h3 className="text-center text-light-100">Practise Job interview With AI</h3>
 
                 <Form {...form}>
-                    {!isSignIn && (<FormField control={form.control} name="name" label="name"/>)}
-                    <FormField control={form.control} name="email" label="email"/>
-                    <FormField control={form.control} name="password" label="password" type="password" />
                     <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-6 mt-6 form">
-                        <Button className="btn" type="submit">{isSignIn?'sign in':'Create Account'}</Button>
+                        {/* الحقول الآن داخل الـ form لضمان عمل الـ Submit */}
+                        {!isSignIn && (
+                            <FormField
+                                control={form.control}
+                                name="name"
+                                label="Full Name"
+                                placeholder="Enter your name"
+                            />
+                        )}
+
+                        <FormField
+                            control={form.control}
+                            name="email"
+                            label="Email Address"
+                            placeholder="example@mail.com"
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="password"
+                            label="Password"
+                            type="password"
+                            placeholder="••••••••"
+                        />
+
+                        <Button className="btn w-full" type="submit">
+                            {isSignIn ? "Sign In" : "Create Account"}
+                        </Button>
                     </form>
-
-
-
                 </Form>
-                <p className="text-center">
-                    {isSignIn?"No Account yet ?":"Have an account?"}
-                    <Link href={!isSignIn?"/signin":"/signup" } className="font-bold text-user-primary ml-1">
-                        {!isSignIn?"Sign in":"Signup"}
-                    </Link>
 
+                <p className="text-center text-light-200">
+                    {isSignIn ? "No Account yet?" : "Already have an account?"}
+                    <Link
+                        href={isSignIn ? "/signup" : "/signin"}
+                        className="font-bold text-user-primary ml-2 hover:underline"
+                    >
+                        {isSignIn ? "Sign up" : "Sign in"}
+                    </Link>
                 </p>
             </div>
         </div>
     )
 }
+
 export default AuthForm
