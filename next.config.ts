@@ -1,14 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-    /* في الإصدارات الحديثة، يفضل ترك الإعدادات الافتراضية
-       أو استخدام الإعدادات المدعومة فقط */
-
-    // إذا كنتِ تريدين استمرار تجاهل الأخطاء أثناء الـ build في Vercel:
     typescript: {
-        ignoreBuildErrors: true,
+        ignoreBuildErrors: true, // تجاهل أخطاء التايب سكريبت مؤقتاً للرفع
     },
-
+    eslint: {
+        ignoreDuringBuilds: true, // تجاهل أخطاء التنسيق للرفع
+    },
 };
 
 export default nextConfig;

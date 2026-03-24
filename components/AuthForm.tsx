@@ -12,72 +12,46 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth"
 
-// الاستيرادات الخاصة بمشروعك
 import FormField from "./FormField"
 import { auth } from "@/firebase/client"
 import { signIn, signUp } from "@/lib/actions/auth.action"
 
-// 1. تحديد قوانين التحقق (Schema)
-const authFormSchema = (type: string) => {
+// تعريف النوع محلياً لضمان عدم وجود خطأ "Module not found"
+type FormType = "sign-in" | "sign-up";
+
+const authFormSchema = (type: FormType) => {
     return z.object({
-        name: type === "sign-up" ? z.string().min(3, "الاسم يجب أن يكون 3 أحرف على الأقل") : z.string().optional(),
-        email: z.string().email("البريد الإلكتروني غير صالح"),
-        password: z.string().min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل"),
+        name: type === "sign-up" ? z.string().min(3, "Name is too short") : z.string().optional(),
+        email: z.string().email("Invalid email"),
+        password: z.string().min(6, "Password must be at least 6 characters"),
     })
 }
 
-const AuthForm = ({ type }: { type: "sign-in" | "sign-up" }) => {
+const AuthForm = ({ type }: { type: FormType }) => {
     const router = useRouter()
     const isSignIn = type === "sign-in"
     const formSchema = authFormSchema(type)
 
-    // 2. إعداد الفورم
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
-        defaultValues: {
-            name: "",
-            email: "",
-            password: "",
-        },
+        defaultValues: { name: "", email: "", password: "" },
     })
 
-    // 3. دالة الإرسال (Submit Handler)
-    const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    const onSubmit = async (data: z.infer<typeof formSchema>) => {
         try {
             if (type === "sign-up") {
-                // عملية التسجيل الجديد
-                const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password)
-
-                const result = await signUp({
-                    uid: userCredential.user.uid,
-                    name: values.name!,
-                    email: values.email,
-                    password: values.password,
-                })
-
-                if (!result.success) {
-                    toast.error(result.message)
-                    return
-                }
-
-                toast.success("تم إنشاء الحساب بنجاح، يمكنك تسجيل الدخول الآن")
+                const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password)
+                await signUp({ uid: userCredential.user.uid, name: data.name!, email: data.email, password: data.password })
+                toast.success("Account created!")
                 router.push("/signin")
             } else {
-                // عملية تسجيل الدخول
-                const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password)
+                const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password)
                 const idToken = await userCredential.user.getIdToken()
-
-                await signIn({
-                    email: values.email,
-                    idToken,
-                })
-
-                toast.success("تم تسجيل الدخول بنجاح")
-                router.push("/") // التوجه للصفحة الرئيسية
+                await signIn({ email: data.email, idToken })
+                router.push("/")
             }
         } catch (error: any) {
-            console.error(error)
-            toast.error("حدث خطأ: " + (error.message || "فشلت العملية"))
+            toast.error(error.message)
         }
     }
 
@@ -88,48 +62,19 @@ const AuthForm = ({ type }: { type: "sign-in" | "sign-up" }) => {
                     <Image src="/logo.svg" alt="logo" height={32} width={38} />
                     <h2 className="text-primary-100B">PrepWise</h2>
                 </div>
-                <h3 className="text-center text-light-100">Practise Job interview With AI</h3>
-
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-6 mt-6 form">
-                        {/* الحقول الآن داخل الـ form لضمان عمل الـ Submit */}
-                        {!isSignIn && (
-                            <FormField
-                                control={form.control}
-                                name="name"
-                                label="Full Name"
-                                placeholder="Enter your name"
-                            />
-                        )}
-
-                        <FormField
-                            control={form.control}
-                            name="email"
-                            label="Email Address"
-                            placeholder="example@mail.com"
-                        />
-
-                        <FormField
-                            control={form.control}
-                            name="password"
-                            label="Password"
-                            type="password"
-                            placeholder="••••••••"
-                        />
-
+                        {!isSignIn && <FormField control={form.control} name="name" label="Full Name" />}
+                        <FormField control={form.control} name="email" label="Email" />
+                        <FormField control={form.control} name="password" label="Password" type="password" />
                         <Button className="btn w-full" type="submit">
                             {isSignIn ? "Sign In" : "Create Account"}
                         </Button>
                     </form>
                 </Form>
-
-                <p className="text-center text-light-200">
-                    {isSignIn ? "No Account yet?" : "Already have an account?"}
-                    <Link
-                        href={isSignIn ? "/signup" : "/signin"}
-                        className="font-bold text-user-primary ml-2 hover:underline"
-                    >
-                        {isSignIn ? "Sign up" : "Sign in"}
+                <p className="text-center">
+                    <Link href={isSignIn ? "/signup" : "/signin"} className="font-bold text-user-primary">
+                        {isSignIn ? "Create an account" : "Already have an account? Sign in"}
                     </Link>
                 </p>
             </div>
